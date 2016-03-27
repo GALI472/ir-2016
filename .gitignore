@@ -4,3 +4,6 @@
 # ignore configuration file
 config.py
 
+# ignore pycharm stuff
+.idea/
+
