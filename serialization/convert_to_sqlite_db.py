@@ -6,7 +6,7 @@ import config
 
 import xml.etree.ElementTree as ET
 
-from serialization.sqlalchemy_db import DBSession
+from serialization.sqlalchemy_db import DBSession, Category, Question, Answer
 
 dataset = 'small_sample'
 

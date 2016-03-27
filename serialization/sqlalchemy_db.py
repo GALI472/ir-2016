@@ -20,7 +20,7 @@ def truncate(text, length=10):
 
 
 class Category(Base):
-    __tablename__ = 'questions'
+    __tablename__ = 'category'
 
     id = Column(Integer, primary_key=True)
     text = Column(String(config.STRING_LENGTHS['category']))
@@ -37,8 +37,10 @@ class Question(Base):
     # main information
     title = Column(String(config.STRING_LENGTHS['question_title']))
     content = Column(String(config.STRING_LENGTHS['question_content']))
-    # category_id = relationship(Integer, ForeignKey('category.id'))
-    # category = relationship(Category)
+
+    # foreign key to category (instead of storing category id in each one)
+    category_id = Column(Integer, ForeignKey('category.id'))
+    category = relationship(Category)
 
     # metadata
     date = Column(Date, unique=False, nullable=True)
@@ -48,7 +50,10 @@ class Question(Base):
     best_answer_yahoo_id = Column(String(20), nullable=True)
 
     def __repr__(self):
-        return '<Question: id=%d, title="%s", content="%s">' % (self.id, truncate(self.title), truncate(self.content))
+        return '<Question: id=%d, title="%s", content="%s", category="%s">' % (self.id,
+                                                                               truncate(self.title),
+                                                                               truncate(self.content),
+                                                                               truncate(self.category.text))
 
 
 class Answer(Base):
@@ -60,8 +65,9 @@ class Answer(Base):
     content = Column(String(config.STRING_LENGTHS['answer_content']))
     is_best = Column(Boolean, unique=False, default=False)
 
-    # question_id = Column(Integer, ForeignKey('question.id'))
-    # question = relationship(Question)
+    # foreign key to question
+    question_id = Column(Integer, ForeignKey('question.id'))
+    question = relationship(Question)
 
     def __repr__(self):
         return '<Answer: id=%d, title="%s", is_best=%r>' % (self.id, truncate(self.content), self.is_best)
@@ -72,7 +78,6 @@ Base.metadata.bind = _engine
 DBSession = sessionmaker(bind=_engine)
 
 if __name__ == '__main__':
-
     if os.path.isfile(config.DB_PATH):
         print('Removing "%s"...' % config.DB_PATH)
         os.remove(config.DB_PATH)
@@ -80,13 +85,48 @@ if __name__ == '__main__':
     print('Creating database at "%s"...' % config.DB_PATH)
     Base.metadata.create_all(_engine)
 
-    print('Adding dummy question...')
-    session = DBSession()
+    def test_db(num=10):
+        """ Run after creating a new database to ensure that it works as anticipated. """
 
-    session.add(Category(text='dummy category 1'))
-    session.add(Category(text='dummy category 2'))
-    session.commit()
+        print('\n*** database unit test ***')
 
-    categories = session.query(Category).all()
-    print(categories)
+        session = DBSession()
 
+        categories = [Category(text='dummy category %d' % i) for i in range(num)]
+        questions = [Question(title='dummy question %d' % i, content='this is a dummy question', category=categories[i]) for i in range(num)]
+        answers = [Answer(content='dummy answer %d' % i, question=questions[i]) for i in range(num)]
+        session.add_all(categories + questions + answers)
+        session.commit()
+
+        print('Added %d dummy categories, questions and answers' % num)
+
+        categories = session.query(Category).all()
+        assert len(categories) == num
+        print('Categories: {}'.format(categories))
+
+        questions = session.query(Question).all()
+        assert len(questions) == num
+        print('Questions: {}'.format(questions))
+
+        answers = session.query(Answer).all()
+        assert len(answers) == num
+        print('Answers: {}'.format(answers))
+
+        for i in range(3):
+            print('Answers to Question {}, {}: {}'.format(i,
+                                                          questions[i],
+                                                          session.query(Answer).filter(Answer.question == questions[i]).all()))
+
+        for e in categories + questions + answers:
+            session.delete(e)
+        print('Deleted all dummy categories, questions and answers')
+
+        print('Categories: {}, Questions: {}, Answers: {}'.format(session.query(Category).all(),
+                                                                  session.query(Question).all(),
+                                                                  session.query(Answer).all()))
+
+        print('*** end of unit test ***\n')
+        session.commit(); session.close()
+
+    # comment out to remove testing
+    test_db()
