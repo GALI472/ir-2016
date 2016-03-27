@@ -1,4 +1,4 @@
-''' Dummy configuration file '''
+''' Dummy configuration file: Copy to ir-2016/config.py and set appropriate values '''
 
 import os
 
