@@ -26,7 +26,7 @@ class Category(Base):
     text = Column(String(config.STRING_LENGTHS['category']))
 
     def __repr__(self):
-        return '<Category: id=%d, text="%s">' % (self.id, truncate(self.text))
+        return '<Category: id=%d, text="%s">' % (self.id, self.text)
 
 
 class Question(Base):
@@ -77,7 +77,8 @@ _engine = create_engine('sqlite:///' + config.DB_PATH)
 Base.metadata.bind = _engine
 DBSession = sessionmaker(bind=_engine)
 
-if __name__ == '__main__':
+
+def init_db(test=False, test_num=10):
     if os.path.isfile(config.DB_PATH):
         print('Removing "%s"...' % config.DB_PATH)
         os.remove(config.DB_PATH)
@@ -85,7 +86,7 @@ if __name__ == '__main__':
     print('Creating database at "%s"...' % config.DB_PATH)
     Base.metadata.create_all(_engine)
 
-    def test_db(num=10):
+    def test_db(num):
         """ Run after creating a new database to ensure that it works as anticipated. """
 
         print('\n*** database unit test ***')
@@ -129,4 +130,9 @@ if __name__ == '__main__':
         session.commit(); session.close()
 
     # comment out to remove testing
-    test_db()
+    if test:
+        test_db(test_num)
+
+
+if __name__ == '__main__':
+    init_db(test=True)
