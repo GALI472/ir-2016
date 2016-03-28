@@ -1,4 +1,4 @@
-''' Intended to be run as a stand-alone script (not included in __init__.py) '''
+""" Intended to be run as a stand-alone script (not included in __init__.py) """
 
 from __future__ import print_function
 
@@ -6,14 +6,15 @@ import os
 import sys
 
 import datetime
-
 import config
-
 import xml.etree.ElementTree as ET
 
 from serialization.sqlalchemy_db import DBSession, Category, Question, Answer, init_db
 
-datasets = ['small_sample', 'full_part_1', 'full_part_2']
+DO_YOU_REALLY_WANT_TO_RUN = False
+assert DO_YOU_REALLY_WANT_TO_RUN, 'Do you REALLY want to run? The database takes a long time to create!'
+
+datasets = ['yahoo_small_sample', 'yahoo_full']
 dataset = datasets[1]
 
 # make sure the file exists so it can be processed
@@ -24,7 +25,7 @@ if not os.path.exists(config.DATASETS[dataset]):
 session = DBSession()
 
 # initialize the database
-# init_db(test=True)
+init_db(test=True)
 
 # smallest date: dataset provides days relative to this date
 first_day = datetime.date(day=1, month=1, year=1970)

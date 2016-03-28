@@ -1,11 +1,12 @@
-import os
-import sys
+""" Defines the database model for questions and answers (also categories, if they are present) """
 
-from sqlalchemy.orm import relationship, sessionmaker
+import os
+import string
 
 import config
 
 from sqlalchemy import Column, String, Boolean, Date, create_engine, ForeignKey, Integer
+from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -16,7 +17,11 @@ Base = declarative_base()
 
 
 def truncate(text, length=10):
-    return text[:length] + '...' if len(text) > length else text
+    if text is None:
+        return ''
+
+    text_clean = filter(lambda x: x in set(string.printable), text)
+    return text_clean[:length] + '...' if len(text_clean) > length else text_clean
 
 
 class Category(Base):
@@ -26,7 +31,7 @@ class Category(Base):
     text = Column(String(config.STRING_LENGTHS['category']))
 
     def __repr__(self):
-        return '<Category: id=%d, text="%s">' % (self.id, self.text)
+        return u'<Category: id=%d, text="%s">' % (self.id, self.text)
 
 
 class Question(Base):
@@ -50,10 +55,10 @@ class Question(Base):
     best_answer_yahoo_id = Column(String(20), nullable=True)
 
     def __repr__(self):
-        return '<Question: id=%d, title="%s", content="%s", category="%s">' % (self.id,
-                                                                               truncate(self.title),
-                                                                               truncate(self.content),
-                                                                               truncate(self.category.text))
+        return u'<Question: id=%d, title="%s", content="%s", category="%s">' % (self.id,
+                                                                                truncate(self.title),
+                                                                                truncate(self.content),
+                                                                                truncate(self.category.text))
 
 
 class Answer(Base):
@@ -72,18 +77,17 @@ class Answer(Base):
     def __repr__(self):
         return '<Answer: id=%d, title="%s", is_best=%r>' % (self.id, truncate(self.content), self.is_best)
 
-assert os.path.isfile(config.DB_PATH), 'Database not found at "%s", run serialization/sqlalchemy_db.py' % config.DB_PATH
-_engine = create_engine('sqlite:///' + config.DB_PATH)
+_engine = create_engine('sqlite:///' + config.YAHOO_DB_PATH)
 Base.metadata.bind = _engine
 DBSession = sessionmaker(bind=_engine)
 
 
 def init_db(test=False, test_num=10):
-    if os.path.isfile(config.DB_PATH):
-        print('Removing "%s"...' % config.DB_PATH)
-        os.remove(config.DB_PATH)
+    if os.path.isfile(config.YAHOO_DB_PATH):
+        print('Removing "%s"...' % config.YAHOO_DB_PATH)
+        os.remove(config.YAHOO_DB_PATH)
 
-    print('Creating database at "%s"...' % config.DB_PATH)
+    print('Creating database at "%s"...' % config.YAHOO_DB_PATH)
     Base.metadata.create_all(_engine)
 
     def test_db(num):
@@ -122,6 +126,9 @@ def init_db(test=False, test_num=10):
             session.delete(e)
         print('Deleted all dummy categories, questions and answers')
 
+        assert session.query(Category).count() == 0
+        assert session.query(Question).count() == 0
+        assert session.query(Answer).count() == 0
         print('Categories: {}, Questions: {}, Answers: {}'.format(session.query(Category).all(),
                                                                   session.query(Question).all(),
                                                                   session.query(Answer).all()))
