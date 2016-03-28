@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 
 from serialization.sqlalchemy_db import DBSession, Category, Question, Answer, init_db
 
-DO_YOU_REALLY_WANT_TO_RUN = False
+DO_YOU_REALLY_WANT_TO_RUN = True
 assert DO_YOU_REALLY_WANT_TO_RUN, 'Do you REALLY want to run? The database takes a long time to create!'
 
 datasets = ['yahoo_small_sample', 'yahoo_full']
@@ -42,7 +42,7 @@ for event, elem in ET.iterparse(config.DATASETS[dataset], events=('start', 'end'
             session.add_all([question] + answers)
 
             count += 1
-            if count % 100 == 0:
+            if count % 10000 == 0:
                 print('Processed %d questions' % count)
                 session.commit()
 
@@ -57,7 +57,7 @@ for event, elem in ET.iterparse(config.DATASETS[dataset], events=('start', 'end'
             question.content = elem.text.strip()
 
         elif elem.tag == 'bestanswer' or elem.tag == 'answer_item':
-            answer = Answer(content=elem.text, is_best=elem.tag == 'bestanswer')
+            answer = Answer(content=elem.text, is_best=elem.tag == 'bestanswer', question=question)
             answers.append(answer)
 
         elif elem.tag == 'cat':

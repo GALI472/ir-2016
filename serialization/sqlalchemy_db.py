@@ -44,7 +44,7 @@ class Question(Base):
     content = Column(String(config.STRING_LENGTHS['question_content']))
 
     # foreign key to category (instead of storing category id in each one)
-    category_id = Column(Integer, ForeignKey('category.id'))
+    category_id = Column(Integer, ForeignKey('category.id'), nullable=False, default='None')
     category = relationship(Category)
 
     # metadata
@@ -71,11 +71,14 @@ class Answer(Base):
     is_best = Column(Boolean, unique=False, default=False)
 
     # foreign key to question
-    question_id = Column(Integer, ForeignKey('question.id'))
+    question_id = Column(Integer, ForeignKey('question.id'), nullable=False)
     question = relationship(Question)
 
     def __repr__(self):
-        return '<Answer: id=%d, title="%s", is_best=%r>' % (self.id, truncate(self.content), self.is_best)
+        return u'<Answer: id=%d, title="%s", is_best=%r, question_id=%d>' % (self.id,
+                                                                             truncate(self.content),
+                                                                             self.is_best,
+                                                                             self.question_id)
 
 _engine = create_engine('sqlite:///' + config.YAHOO_DB_PATH)
 Base.metadata.bind = _engine
