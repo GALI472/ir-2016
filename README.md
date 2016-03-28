@@ -3,6 +3,8 @@ CS 572 - Information Retrieval final project, Emory University 2016
 
 ## Resources
 - [Semantic Text Similarity Dataset Hub](https://github.com/brmson/dataset-sts)
+- [Trec LiveQA 2016](https://sites.google.com/site/trecliveqa2016/)
+- [Java Skeleton Server](https://github.com/yuvalpinter/LiveQAServerDemo)
 
 ## Data
 - L6 from [Yahoo Webscope](http://webscope.sandbox.yahoo.com/)
