@@ -7,3 +7,5 @@ config.py
 # ignore pycharm stuff
 .idea/
 
+# if you want to include your data directory as a subdirectory
+data/
