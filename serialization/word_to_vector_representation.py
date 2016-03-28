@@ -12,19 +12,26 @@ import numpy as np
 
 import config
 
-from serialization.sqlalchemy_db import DBSession, Category, Question, Answer, init_db
+from serialization.sqlalchemy_db import DBSession, Category, Question, Answer
 
 
 class YahooDictionary:
-    def __init__(self, vocab_size=20000, dict_file_name='vocab.dict', yield_per=100, print_per=10000):
+    def __init__(self, dict_file_name='vocab.dict', yield_per=100, print_per=10000):
+        """
+        Dictionary for storing and accessing questions and answers from the Yahoo QA database
+
+        :param dict_file_name: Dictionary location on disk is { config.BASE_DATA_PATH }/{ dict_file_name }
+        :param yield_per: For iterating the database, number of documents to retrieve at once. Depends on system memory.
+        :param print_per: For long operations, the number of times to print out the status
+        """
+
         self.vocab = Dictionary()
         self.vocab_file = os.path.join(config.BASE_DATA_PATH, dict_file_name)
-        self.vocab_size = vocab_size
         self.yield_per = yield_per
         self.print_per = print_per
 
         # start a db session
-        self.session = DBSession()
+        session = DBSession()
 
         # load the vocabulary if it exists
         if os.path.exists(self.vocab_file):
@@ -33,57 +40,78 @@ class YahooDictionary:
             self._generate_vocabulary()
 
         # get the categories as a set
-        self.categories = [c[0] for c in self.session.query(Category.text).distinct().all()]
+        self.categories = [c[0] for c in session.query(Category.text).distinct().all()]
         self.cat_to_idx = dict((c, i + 1) for i, c in enumerate(self.categories))
         self.idx_to_cat = dict((i + 1, c) for i, c in enumerate(self.categories))
 
+        # some information about the dictionary
+        self.n_questions = session.query(Question).count()
+        self.n_answers = session.query(Answer).count()
+
         # commit and close the session
-        self.session.commit(); self.session.close()
+        session.close()
 
     @staticmethod
     def tokenize(text):
+        """
+        Defines how to tokenize a string.
+
+        :param text: The string to tokenize.
+        :return: A generator for tokenized text
+        """
+
         return gensim.utils.tokenize(text, to_lower=True)
 
     def _generate_vocabulary(self):
-        n_questions = self.session.query(Question).count()
-        n_answers = self.session.query(Answer).count()
+        session = DBSession()
 
         i = 0
-        for question in self.session.query(Question).yield_per(self.yield_per):
+        for question in session.query(Question).yield_per(self.yield_per):
             i += 1
             if i % self.print_per == 0:
-                print('Processed %d / %d questions :: %d unique tokens' % (i, n_questions, self.vocab.num_docs))
+                print('Processed %d / %d questions :: %d unique tokens' % (i, self.n_questions, self.vocab.num_docs))
 
             strings = [question.title, question.content] if question.content is not None else [question.title]
             self.vocab.add_documents([YahooDictionary.tokenize(s) for s in strings])
 
         i = 0
-        for answer in self.session.query(Answer).yield_per(self.yield_per):
+        for answer in session.query(Answer).yield_per(self.yield_per):
             i += 1
             if i % self.print_per == 0:
-                print('Processed %d / %d answers :: %d unique tokens' % (i, n_answers, self.vocab.num_docs))
+                print('Processed %d / %d answers :: %d unique tokens' % (i, self.n_answers, self.vocab.num_docs))
 
             self.vocab.add_documents([YahooDictionary.tokenize(answer.content)])
 
         # save the vocabulary
         self.vocab.save_as_text(self.vocab_file)
 
-    def get_docs(self, yield_per=100):
+        # commit and close the session
+        session.commit(); session.close()
+
+    def get_docs(self, num=-1):
+        """
+        Get encoded documents.
+
+        :param num: Number of documents to return (defaults to all documents)
+        :return: The first `num` documents in the dictionary
+        """
+
         session = DBSession()
 
         answers = []
         questions = []
         categories = []
 
-        n_questions = session.query(Question).count()
-        n_answers = session.query(Answer).count()
-        print('%d questions, %d answers' % (n_questions, n_answers))
+        if num < 0:
+            num = self.n_answers
+
+        print('%d questions, %d answers' % (self.n_questions, self.n_answers))
 
         i = 0
-        for answer in self.session.query(Answer).yield_per(self.yield_per):
+        for answer in itertools.islice(session.query(Answer).yield_per(self.yield_per), num):
             i += 1
             if i % self.print_per == 0:
-                print('Processed %d / %d answers' % (i, n_answers))
+                print('Processed %d / %d answers' % (i, self.n_answers))
 
             question = answer.question
             question_title_tokens = YahooDictionary.tokenize(question.title)

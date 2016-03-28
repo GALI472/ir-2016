@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 
 from serialization.sqlalchemy_db import DBSession, Category, Question, Answer, init_db
 
-DO_YOU_REALLY_WANT_TO_RUN = True
+DO_YOU_REALLY_WANT_TO_RUN = False
 assert DO_YOU_REALLY_WANT_TO_RUN, 'Do you REALLY want to run? The database takes a long time to create!'
 
 datasets = ['yahoo_small_sample', 'yahoo_full']

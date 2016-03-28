@@ -86,6 +86,12 @@ DBSession = sessionmaker(bind=_engine)
 
 
 def init_db(test=False, test_num=10):
+    """
+    Initialize a database at the location specified by config.YAHOO_DB_PATH
+
+    :param test: `True` to run unit tests on the new database
+    :param test_num: Number of unit tests to run
+    """
     if os.path.isfile(config.YAHOO_DB_PATH):
         print('Removing "%s"...' % config.YAHOO_DB_PATH)
         os.remove(config.YAHOO_DB_PATH)
