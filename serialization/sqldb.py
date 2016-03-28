@@ -80,23 +80,23 @@ class Answer(Base):
                                                                              self.is_best,
                                                                              self.question_id)
 
-_engine = create_engine('sqlite:///' + config.YAHOO_DB_PATH)
+_engine = create_engine('sqlite:///' + config.DATABASES['yahoo'])
 Base.metadata.bind = _engine
 DBSession = sessionmaker(bind=_engine)
 
 
-def init_db(test=False, test_num=10):
+def init_db(db_path, test=False, test_num=10):
     """
     Initialize a database at the location specified by config.YAHOO_DB_PATH
 
     :param test: `True` to run unit tests on the new database
     :param test_num: Number of unit tests to run
     """
-    if os.path.isfile(config.YAHOO_DB_PATH):
-        print('Removing "%s"...' % config.YAHOO_DB_PATH)
-        os.remove(config.YAHOO_DB_PATH)
+    if os.path.isfile(db_path):
+        print('Removing "%s"...' % db_path)
+        os.remove(db_path)
 
-    print('Creating database at "%s"...' % config.YAHOO_DB_PATH)
+    print('Creating database at "%s"...' % db_path)
     Base.metadata.create_all(_engine)
 
     def test_db(num):
@@ -150,6 +150,3 @@ def init_db(test=False, test_num=10):
     if test:
         test_db(test_num)
 
-
-if __name__ == '__main__':
-    init_db(test=True)
