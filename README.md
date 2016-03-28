@@ -2,7 +2,7 @@
 CS 572 - Information Retrieval final project, Emory University 2016
 
 # Todo
-- [ ] Serialize documents in Yahoo QA XML files as an SQLite database
+- [*] Serialize documents in Yahoo QA XML files as an SQLite database
 - [ ] Write interface for recieving questions for the competition: See Java example on webpage
 - [ ] Make interface for adding generic prediction models
 - [ ] Write mixture of experts predictor given all prediction models models
