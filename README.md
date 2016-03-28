@@ -1,9 +1,6 @@
 # ir-2016
 CS 572 - Information Retrieval final project, Emory University 2016
 
-## Data
-- L6 from [Yahoo Webscope](http://webscope.sandbox.yahoo.com/)
-
 ## Todo
 - [x] Serialize documents in Yahoo QA XML files as an SQLite database
 - [ ] Write interface for recieving questions for the competition: See Java example on webpage
@@ -17,3 +14,9 @@ CS 572 - Information Retrieval final project, Emory University 2016
 - [ ] TF-IDF or BM-25 - [Gensim](https://radimrehurek.com/gensim/models/tfidfmodel.html)
 - [ ] Word2Vec - [Gensim](https://radimrehurek.com/gensim/models/word2vec.html)
 - [ ] Neural network model - Some success using Keras
+
+## Data
+- L6 from [Yahoo Webscope](http://webscope.sandbox.yahoo.com/)
+
+## Resources
+- [Semantic Text Similarity Dataset Hub](https://github.com/brmson/dataset-sts)
