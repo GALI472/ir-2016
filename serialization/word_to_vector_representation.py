@@ -90,7 +90,8 @@ class YahooDictionary:
             question_content_tokens = [] if question.content is None else YahooDictionary.tokenize(question.content)
 
             # encode using the dictionary
-            question_enc = [self.vocab.token2id[x] for x in itertools.chain(question_title_tokens, question_content_tokens)]
+            question_enc = [self.vocab.token2id[x] for x in itertools.chain(question_title_tokens,
+                                                                            question_content_tokens)]
 
             # category indices
             category_enc = self.cat_to_idx[answer.category.text]
@@ -104,8 +105,9 @@ class YahooDictionary:
             questions.append(question_enc)
             categories.append(category_enc)
 
+        question_length = config.STRING_LENGTHS['question_title'] + config.STRING_LENGTHS['question_content']
         return pad_sequences(answers, config.STRING_LENGTHS['answer_content']), \
-               pad_sequences(questions, config.STRING_LENGTHS['question_title'] + config.STRING_LENGTHS['question_content']), \
+               pad_sequences(questions, question_length), \
                np.array(categories)
 
 if __name__ == '__main__':

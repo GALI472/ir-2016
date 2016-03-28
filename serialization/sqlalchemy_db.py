@@ -101,7 +101,9 @@ def init_db(test=False, test_num=10):
         session = DBSession()
 
         categories = [Category(text='dummy category %d' % i) for i in range(num)]
-        questions = [Question(title='dummy question %d' % i, content='this is a dummy question', category=categories[i]) for i in range(num)]
+        questions = [Question(title='dummy question %d' % i,
+                              content='this is a dummy question',
+                              category=categories[i]) for i in range(num)]
         answers = [Answer(content='dummy answer %d' % i, question=questions[i]) for i in range(num)]
         session.add_all(categories + questions + answers)
         session.commit()
@@ -121,9 +123,8 @@ def init_db(test=False, test_num=10):
         print('Answers: {}'.format(answers))
 
         for i in range(3):
-            print('Answers to Question {}, {}: {}'.format(i,
-                                                          questions[i],
-                                                          session.query(Answer).filter(Answer.question == questions[i]).all()))
+            answer = session.query(Answer).filter(Answer.question == questions[i]).all()
+            print('Answers to Question {}, {}: {}'.format(i, questions[i], answer))
 
         for e in categories + questions + answers:
             session.delete(e)
