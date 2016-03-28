@@ -33,20 +33,24 @@ class YahooDictionary:
         # start a db session
         session = DBSession()
 
+        # some information about the dictionary
+        self.n_questions = session.query(Question).count()
+        self.n_answers = session.query(Answer).count()
+
+        os.remove(self.vocab_file)
+
         # load the vocabulary if it exists
         if os.path.exists(self.vocab_file):
+            print('Loading vocabulary from "%s"' % self.vocab_file)
             self.vocab.load_from_text(self.vocab_file)
         else:
+            print('Generating vocabulary')
             self._generate_vocabulary()
 
         # get the categories as a set
         self.categories = [c[0] for c in session.query(Category.text).distinct().all()]
         self.cat_to_idx = dict((c, i + 1) for i, c in enumerate(self.categories))
         self.idx_to_cat = dict((i + 1, c) for i, c in enumerate(self.categories))
-
-        # some information about the dictionary
-        self.n_questions = session.query(Question).count()
-        self.n_answers = session.query(Answer).count()
 
         # commit and close the session
         session.close()
@@ -88,6 +92,12 @@ class YahooDictionary:
         # commit and close the session
         session.commit(); session.close()
 
+    def token2id(self, token):
+        return self.vocab.token2id.get(token)
+
+    def id2token(self, id):
+        return self.vocab.id2token.get(id)
+
     def get_docs(self, num=-1):
         """
         Get encoded documents.
@@ -105,8 +115,6 @@ class YahooDictionary:
         if num < 0:
             num = self.n_answers
 
-        print('%d questions, %d answers' % (self.n_questions, self.n_answers))
-
         i = 0
         for answer in itertools.islice(session.query(Answer).yield_per(self.yield_per), num):
             i += 1
@@ -118,11 +126,10 @@ class YahooDictionary:
             question_content_tokens = [] if question.content is None else YahooDictionary.tokenize(question.content)
 
             # encode using the dictionary
-            question_enc = [self.vocab.token2id[x] for x in itertools.chain(question_title_tokens,
-                                                                            question_content_tokens)]
+            question_enc = [self.token2id(x) for x in itertools.chain(question_title_tokens, question_content_tokens)]
 
             # category indices
-            category_enc = self.cat_to_idx[answer.category.text]
+            category_enc = self.cat_to_idx[question.category.text]
 
             # answer indices
             answer_tokens = YahooDictionary.tokenize(answer.content)
