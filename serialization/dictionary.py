@@ -12,7 +12,7 @@ import numpy as np
 
 import config
 
-from serialization.sqlalchemy_db import DBSession, Category, Question, Answer
+from serialization.sqldb import DBSession, Category, Question, Answer
 
 
 class YahooDictionary:
