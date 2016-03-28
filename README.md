@@ -1,8 +1,12 @@
 # ir-2016
 CS 572 - Information Retrieval final project, Emory University 2016
 
+## Resources
+- [Semantic Text Similarity Dataset Hub](https://github.com/brmson/dataset-sts)
+
 ## Data
 - L6 from [Yahoo Webscope](http://webscope.sandbox.yahoo.com/)
+- [Wikipedia Dump](https://dumps.wikimedia.org/)
 
 ## Todo
 - [x] Serialize documents in Yahoo QA XML files as an SQLite database
@@ -10,6 +14,7 @@ CS 572 - Information Retrieval final project, Emory University 2016
 - [ ] Make interface for adding generic prediction models
 - [ ] Write mixture of experts predictor given all prediction models models
 - [ ] Implement prediction models, see if they work
+- [ ] Wikipedia article summarizer
 
 #### Prediction models
 - [ ] Latent Dirichlet Allocation - [Gensim](https://radimrehurek.com/gensim/models/ldamodel.html)
