@@ -56,15 +56,60 @@ class GensimInterface(RetrievalInterface):
 
 
 class TfidfRetrieval(GensimInterface):
+    def __init__(self, dictionary):
+        GensimInterface.__init__(self, dictionary=dictionary, name='tfidf', num_features=dictionary.vocab.num_docs)
+
     def generate_model(self, corpus):
         return gensim.models.TfidfModel(corpus)
 
     def load_model(self, fname):
-        return gensim.models.TfidfModel.load(fname)
+        return gensim.models.TfidfModel.load(fname, mmap='r')
+
+
+class LdaRetrieval(GensimInterface):
+    def __init__(self, dictionary, n_topics=1000):
+        GensimInterface.__init__(self, dictionary=dictionary, name='lda', num_features=n_topics)
+
+    def generate_model(self, corpus):
+        return gensim.models.LdaModel(corpus, num_topics=self.num_features)
+
+    def load_model(self, fname):
+        return gensim.models.LdaModel.load(fname, mmap='r')
+
+
+class LsiRetrieval(GensimInterface):
+    def __init__(self, dictionary, n_topics=100):
+        GensimInterface.__init__(self, dictionary=dictionary, name='lsi', num_features=n_topics)
+
+    def generate_model(self, corpus):
+        return gensim.models.LdaModel(corpus, num_topics=self.num_features)
+
+    def load_model(self, fname):
+        return gensim.models.LdaModel.load(fname, mmap='r')
+
+
+class Word2VecRetrieval(GensimInterface):
+    def __init__(self, dictionary, n_dimensions=100):
+        GensimInterface.__init__(self, dictionary=dictionary, name='word2vec', num_features=n_dimensions)
+
+    def generate_model(self, corpus):
+        return gensim.models.Word2Vec(corpus, size=self.num_features)
+
+    def load_model(self, fname):
+        return gensim.models.Word2Vec.load(fname, mmap='r')
 
 if __name__ == '__main__':
     dic = CorpusDictionary(prefix='v20000') # get the shorter dictionary
     print(dic.vocab)
 
-    model = TfidfRetrieval(dictionary=dic, name='tfidf', num_features=dic.vocab.num_docs)
-    model =
+    model = TfidfRetrieval(dic)
+    print(model)
+
+    model = LdaRetrieval(dic)
+    print(model)
+
+    model = LsiRetrieval(dic)
+    print(model)
+
+    model = Word2VecRetrieval(dic)
+    print(model)
