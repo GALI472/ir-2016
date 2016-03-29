@@ -9,6 +9,7 @@ CS 572 - Information Retrieval final project, Emory University 2016
 ## Data
 - L6 from [Yahoo Webscope](http://webscope.sandbox.yahoo.com/)
 - [Wikipedia Dump](https://dumps.wikimedia.org/)
+- [Reddit Comment Dump](https://bigquery.cloud.google.com/welcome/eco-serenity-126001?pli=1) (need to figure out how to link comments with posts)
 
 ## Todo
 - [x] Serialize documents in Yahoo QA XML files as an SQLite database
