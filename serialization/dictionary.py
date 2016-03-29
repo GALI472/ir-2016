@@ -178,6 +178,9 @@ class CorpusDictionary:
 
         session.close()
 
+    def doc2vec(self, doc):
+        return self.vocab.doc2bow(CorpusDictionary.tokenize(doc))
+
     def get_docs(self, num=-1):
         """
         Get encoded documents.
@@ -228,8 +231,9 @@ class CorpusDictionary:
 if __name__ == '__main__':
     dic = CorpusDictionary()
 
-    dic.vocab.filter_extremes(no_above=0.5, keep_n=20000)
-    dic.vocab.save(os.path.join(config.BASE_DATA_PATH, 'dicts', 'v20000_vocab.dict'))
+    if False: # a filtered version of the vocabulary (for performance). can change if time permits?
+        dic.vocab.filter_extremes(no_above=0.5, keep_n=20000)
+        dic.vocab.save(os.path.join(config.BASE_DATA_PATH, 'dicts', 'v20000_vocab.dict'))
 
     # answers, questions, categories = dic.get_docs(100)
     # print('Answers:', answers)

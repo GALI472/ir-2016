@@ -75,7 +75,7 @@ class Answer(Base):
     question = relationship(Question)
 
     def __repr__(self):
-        return u'<Answer: id=%d, title="%s", is_best=%r, question_id=%d>' % (self.id,
+        return u'<Answer: id=%d, content="%s", is_best=%r, question_id=%d>' % (self.id,
                                                                              truncate(self.content),
                                                                              self.is_best,
                                                                              self.question_id)
