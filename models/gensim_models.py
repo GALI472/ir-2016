@@ -1,4 +1,4 @@
-""" Gensim-based retrieval models """
+""" Gensim-based vector space representation retrieval models """
 
 import abc
 import os
@@ -8,6 +8,9 @@ import gensim
 import config
 from models.interfaces import RetrievalInterface
 from serialization.dictionary import CorpusDictionary
+
+import logging
+logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.DEBUG)
 
 
 class GensimInterface(RetrievalInterface):
@@ -71,10 +74,10 @@ class LdaRetrieval(GensimInterface):
         GensimInterface.__init__(self, dictionary=dictionary, name='lda', num_features=n_topics)
 
     def generate_model(self, corpus):
-        return gensim.models.LdaModel(corpus, num_topics=self.num_features)
+        return gensim.models.LdaMulticore(corpus, num_topics=self.num_features)
 
     def load_model(self, fname):
-        return gensim.models.LdaModel.load(fname, mmap='r')
+        return gensim.models.LdaMulticore.load(fname, mmap='r')
 
 
 class LsiRetrieval(GensimInterface):
@@ -105,11 +108,13 @@ if __name__ == '__main__':
     model = TfidfRetrieval(dic)
     print(model)
 
-    model = LdaRetrieval(dic)
+    model = LsiRetrieval(dic)
     print(model)
 
-    model = LsiRetrieval(dic)
+    model = LdaRetrieval(dic)
     print(model)
 
     model = Word2VecRetrieval(dic)
     print(model)
+
+
