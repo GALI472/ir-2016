@@ -32,7 +32,7 @@ class CorpusDictionary:
 
         self.yield_per = yield_per
         self.print_per = print_per
-        self.prefix = prefix
+        self.prefix = prefix + '_' if len(prefix) > 0 else ''
 
         # locations of files in the system
         files = {
@@ -41,7 +41,6 @@ class CorpusDictionary:
             'cat': os.path.join(config.BASE_DATA_PATH, 'dicts', self.prefix + 'categories.pkl'),
             'mm_question_corpus': os.path.join(config.BASE_DATA_PATH, 'dicts', self.prefix + 'question_corpus.mm'),
             'mm_answer_corpus': os.path.join(config.BASE_DATA_PATH, 'dicts', self.prefix + 'answer_corpus.mm'),
-
         }
 
         # start a db session
@@ -54,11 +53,11 @@ class CorpusDictionary:
         # load the vocabulary if it exists
         if os.path.exists(files['vocab']):
             print('Loading vocabulary from "%s"' % files['vocab'])
-            self.vocab = Dictionary.load_from_text(files['vocab'])
+            self.vocab = Dictionary.load(files['vocab'])
         else:
             print('Generating vocabulary')
             self.vocab = self._generate_vocabulary()
-            self.vocab.save_as_text(files['vocab'])
+            self.vocab.save(files['vocab'])
 
         # load or generate the reverse matchings
         if os.path.exists(files['id2token']):
@@ -126,7 +125,6 @@ class CorpusDictionary:
         :param text: The string to tokenize.
         :return: A generator for tokenized text
         """
-
         return gensim.utils.tokenize(text, to_lower=True)
 
     def _generate_vocabulary(self):
@@ -151,15 +149,16 @@ class CorpusDictionary:
             vocab.add_documents([CorpusDictionary.tokenize(answer.content)])
 
         # commit and close the session
-        session.commit(); session.close()
+        session.commit()
+        session.close()
 
         return vocab
 
     def token2id(self, token):
         return self.vocab.token2id.get(token, self.empty_token_id)
 
-    def id2token(self, id):
-        return self.vocab.id2token.get(id, self.empty_id_token)
+    def id2token(self, tid):
+        return self.vocab.id2token.get(tid, self.empty_id_token)
 
     def cat_to_idx(self, category):
         return self.cat_to_idx_dict.get(category.text, self.empty_category_idx) if category is not None \
@@ -222,14 +221,17 @@ class CorpusDictionary:
             categories.append(category_enc)
 
         question_length = config.STRING_LENGTHS['question_title'] + config.STRING_LENGTHS['question_content']
-        return pad_sequences(answers, config.STRING_LENGTHS['answer_content']), \
-               pad_sequences(questions, question_length), \
-               np.array(categories)
+        return (pad_sequences(answers, config.STRING_LENGTHS['answer_content']),
+                pad_sequences(questions, question_length),
+                np.array(categories))
 
 if __name__ == '__main__':
-    dictionary = CorpusDictionary()
+    dic = CorpusDictionary()
 
-    # answers, questions, categories = dictionary.get_docs(100)
+    dic.vocab.filter_extremes(no_above=0.5, keep_n=20000)
+    dic.vocab.save(os.path.join(config.BASE_DATA_PATH, 'dicts', 'v20000_vocab.dict'))
+
+    # answers, questions, categories = dic.get_docs(100)
     # print('Answers:', answers)
     # print('Questions:', questions)
     # print('Categories:', categories)
