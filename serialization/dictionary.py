@@ -16,6 +16,9 @@ import config
 
 from serialization.sqldb import DBSession, Category, Question, Answer
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class CorpusDictionary:
     def __init__(self,
@@ -52,19 +55,19 @@ class CorpusDictionary:
 
         # load the vocabulary if it exists
         if os.path.exists(files['vocab']):
-            print('Loading vocabulary from "%s"' % files['vocab'])
+            logger.info('Loading vocabulary from "%s"' % files['vocab'])
             self.vocab = Dictionary.load(files['vocab'])
         else:
-            print('Generating vocabulary')
+            logger.info('Generating vocabulary')
             self.vocab = self._generate_vocabulary()
             self.vocab.save(files['vocab'])
 
         # load or generate the reverse matchings
         if os.path.exists(files['id2token']):
-            print('Loading id2token from "%s"' % files['id2token'])
+            logger.info('Loading id2token from "%s"' % files['id2token'])
             self.vocab.id2token = pickle.load(open(files['id2token'], 'rb'))
         else:
-            print('Generating id2token')
+            logger.info('Generating id2token')
             self.vocab.id2token = dict((e, i) for i, e in self.vocab.token2id.iteritems())
             pickle.dump(self.vocab.id2token, open(files['id2token'], 'wb'))
 
@@ -74,10 +77,10 @@ class CorpusDictionary:
 
         # get the categories as a set
         if os.path.exists(files['cat']):
-            print('Loading category mappings from "%s"' % files['cat'])
+            logger.info('Loading category mappings from "%s"' % files['cat'])
             self.cat_to_idx_dict, self.idx_to_cat_dict = pickle.load(open(files['cat'], 'rb'))
         else:
-            print('Generating category mappings')
+            logger.info('Generating category mappings')
             categories = [c[0] for c in session.query(Category.text).distinct().all()]
             self.cat_to_idx_dict = dict((c, i + 1) for i, c in enumerate(categories))
             self.idx_to_cat_dict = dict((i + 1, c) for i, c in enumerate(categories))
@@ -97,7 +100,7 @@ class CorpusDictionary:
 
                 i += 1
                 if i % self.print_per == 0:
-                    print('Added %d documents to corpus' % i)
+                    logger.info('Added %d documents to corpus' % i)
 
                 yield self.vocab.doc2bow(doc)
 
@@ -108,10 +111,10 @@ class CorpusDictionary:
             gensim.corpora.MmCorpus.serialize(files['mm_answer_corpus'], corpus(Answer))
 
         # load the corpus
-        print('Loading corpus from "%s"' % files['mm_question_corpus'])
+        logger.info('Loading corpus from "%s"' % files['mm_question_corpus'])
         self.mm_corpus = gensim.corpora.MmCorpus(files['mm_question_corpus'])
 
-        print('Loading corpus from "%s"' % files['mm_answer_corpus'])
+        logger.info('Loading corpus from "%s"' % files['mm_answer_corpus'])
         self.mm_corpus = gensim.corpora.MmCorpus(files['mm_answer_corpus'])
 
         # commit and close the session
@@ -135,7 +138,7 @@ class CorpusDictionary:
         for question in session.query(Question).yield_per(self.yield_per):
             i += 1
             if i % self.print_per == 0:
-                print('Processed %d / %d questions :: %d unique tokens' % (i, self.n_questions, vocab.num_docs))
+                logger.info('Processed %d / %d questions :: %d unique tokens' % (i, self.n_questions, vocab.num_docs))
 
             strings = [question.title, question.content] if question.content is not None else [question.title]
             vocab.add_documents([CorpusDictionary.tokenize(s) for s in strings])
@@ -144,7 +147,7 @@ class CorpusDictionary:
         for answer in session.query(Answer).yield_per(self.yield_per):
             i += 1
             if i % self.print_per == 0:
-                print('Processed %d / %d answers :: %d unique tokens' % (i, self.n_answers, vocab.num_docs))
+                logger.info('Processed %d / %d answers :: %d unique tokens' % (i, self.n_answers, vocab.num_docs))
 
             vocab.add_documents([CorpusDictionary.tokenize(answer.content)])
 
@@ -181,6 +184,15 @@ class CorpusDictionary:
     def doc2vec(self, doc):
         return self.vocab.doc2bow(CorpusDictionary.tokenize(doc))
 
+    def __iter__(self):
+        session = DBSession()
+
+        for answer in session.query(Answer).yield_per(self.yield_per):
+            for line in answer.content.splitlines():
+                yield list(line.split())
+
+        session.close()
+
     def get_docs(self, num=-1):
         """
         Get encoded documents.
@@ -202,7 +214,7 @@ class CorpusDictionary:
         for answer in itertools.islice(session.query(Answer).yield_per(self.yield_per), num):
             i += 1
             if i % self.print_per == 0:
-                print('Processed %d / %d answers' % (i, self.n_answers))
+                logger.info('Processed %d / %d answers' % (i, self.n_answers))
 
             question = answer.question
             question_title_tokens = CorpusDictionary.tokenize(question.title)
@@ -236,6 +248,6 @@ if __name__ == '__main__':
         dic.vocab.save(os.path.join(config.BASE_DATA_PATH, 'dicts', 'v20000_vocab.dict'))
 
     # answers, questions, categories = dic.get_docs(100)
-    # print('Answers:', answers)
-    # print('Questions:', questions)
-    # print('Categories:', categories)
+    # logger.info('Answers:', answers)
+    # logger.info('Questions:', questions)
+    # logger.info('Categories:', categories)

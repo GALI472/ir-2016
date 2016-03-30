@@ -9,6 +9,9 @@ from sqlalchemy import Column, String, Boolean, Date, create_engine, ForeignKey,
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
+import logging
+logger = logging.getLogger(__name__)
+
 Base = declarative_base()
 
 # ---------------
@@ -20,7 +23,7 @@ def truncate(text, length=10):
     if text is None:
         return ''
 
-    text_clean = filter(lambda x: x in set(string.printable), text)
+    text_clean = filter(lambda x: x in set(string.logger.infoable), text)
     return text_clean[:length] + '...' if len(text_clean) > length else text_clean
 
 
@@ -93,16 +96,16 @@ def init_db(db_path, test=False, test_num=10):
     :param test_num: Number of unit tests to run
     """
     if os.path.isfile(db_path):
-        print('Removing "%s"...' % db_path)
+        logger.info('Removing "%s"...' % db_path)
         os.remove(db_path)
 
-    print('Creating database at "%s"...' % db_path)
+    logger.info('Creating database at "%s"...' % db_path)
     Base.metadata.create_all(_engine)
 
     def test_db(num):
         """ Run after creating a new database to ensure that it works as anticipated. """
 
-        print('\n*** database unit test ***')
+        logger.info('\n*** database unit test ***')
 
         session = DBSession()
 
@@ -114,36 +117,36 @@ def init_db(db_path, test=False, test_num=10):
         session.add_all(categories + questions + answers)
         session.commit()
 
-        print('Added %d dummy categories, questions and answers' % num)
+        logger.info('Added %d dummy categories, questions and answers' % num)
 
         categories = session.query(Category).all()
         assert len(categories) == num
-        print('Categories: {}'.format(categories))
+        logger.info('Categories: {}'.format(categories))
 
         questions = session.query(Question).all()
         assert len(questions) == num
-        print('Questions: {}'.format(questions))
+        logger.info('Questions: {}'.format(questions))
 
         answers = session.query(Answer).all()
         assert len(answers) == num
-        print('Answers: {}'.format(answers))
+        logger.info('Answers: {}'.format(answers))
 
         for i in range(3):
             answer = session.query(Answer).filter(Answer.question == questions[i]).all()
-            print('Answers to Question {}, {}: {}'.format(i, questions[i], answer))
+            logger.info('Answers to Question {}, {}: {}'.format(i, questions[i], answer))
 
         for e in categories + questions + answers:
             session.delete(e)
-        print('Deleted all dummy categories, questions and answers')
+        logger.info('Deleted all dummy categories, questions and answers')
 
         assert session.query(Category).count() == 0
         assert session.query(Question).count() == 0
         assert session.query(Answer).count() == 0
-        print('Categories: {}, Questions: {}, Answers: {}'.format(session.query(Category).all(),
+        logger.info('Categories: {}, Questions: {}, Answers: {}'.format(session.query(Category).all(),
                                                                   session.query(Question).all(),
                                                                   session.query(Answer).all()))
 
-        print('*** end of unit test ***\n')
+        logger.info('*** end of unit test ***\n')
         session.commit(); session.close()
 
     # comment out to remove testing

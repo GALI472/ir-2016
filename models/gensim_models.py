@@ -4,13 +4,14 @@ import abc
 import os
 
 import gensim
+import itertools
 
 import config
 from models.interfaces import RetrievalInterface
 from serialization.dictionary import CorpusDictionary
 
 import logging
-logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 class GensimInterface(RetrievalInterface):
@@ -21,10 +22,10 @@ class GensimInterface(RetrievalInterface):
         self.num_features = num_features
 
         if os.path.exists(self.index_name):
-            print('Loading matrix similarities for <%s>' % name)
+            logger.info('Loading matrix similarities for <%s>' % name)
             self.index = gensim.similarities.Similarity.load(self.index_name)
         else:
-            print('Generating matrix similarities for <%s>' % name)
+            logger.info('Generating matrix similarities for <%s>' % name)
             self.index = self.generate_index(dictionary, name)
             self.index.save(self.index_name)
 
@@ -32,11 +33,11 @@ class GensimInterface(RetrievalInterface):
 
         # make sure the model exists, otherwise generate it
         if not os.path.exists(config.MODELS[name]):
-            print('Generating <%s> model at "%s"' % (name, config.MODELS[name]))
-            model = self.generate_model(dictionary.mm_corpus)
+            logger.info('Generating <%s> model at "%s"' % (name, config.MODELS[name]))
+            model = self.generate_model(dictionary)
             model.save(config.MODELS[name])
         else:
-            print('Loading <%s> model from "%s"' % (name, config.MODELS[name]))
+            logger.info('Loading <%s> model from "%s"' % (name, config.MODELS[name]))
             model = self.load_model(config.MODELS[name])
 
         index = gensim.similarities.Similarity(self.index_name,
@@ -50,7 +51,7 @@ class GensimInterface(RetrievalInterface):
         return sims[:n]
 
     @abc.abstractmethod
-    def generate_model(self, corpus):
+    def generate_model(self, dictionary):
         return
 
     @abc.abstractmethod
@@ -62,8 +63,8 @@ class TfidfRetrieval(GensimInterface):
     def __init__(self, dictionary):
         GensimInterface.__init__(self, dictionary=dictionary, name='tfidf', num_features=dictionary.vocab.num_docs)
 
-    def generate_model(self, corpus):
-        return gensim.models.TfidfModel(corpus)
+    def generate_model(self, dictionary):
+        return gensim.models.TfidfModel(dictionary.mm_corpus)
 
     def load_model(self, fname):
         return gensim.models.TfidfModel.load(fname, mmap='r')
@@ -73,37 +74,52 @@ class LdaRetrieval(GensimInterface):
     def __init__(self, dictionary, n_topics=1000):
         GensimInterface.__init__(self, dictionary=dictionary, name='lda', num_features=n_topics)
 
-    def generate_model(self, corpus):
-        return gensim.models.LdaMulticore(corpus, num_topics=self.num_features)
+    def generate_model(self, dictionary):
+        return gensim.models.LdaModel(dictionary.mm_corpus, num_topics=self.num_features)
 
     def load_model(self, fname):
-        return gensim.models.LdaMulticore.load(fname, mmap='r')
+        return gensim.models.LdaModel.load(fname, mmap='r')
 
 
 class LsiRetrieval(GensimInterface):
     def __init__(self, dictionary, n_topics=100):
         GensimInterface.__init__(self, dictionary=dictionary, name='lsi', num_features=n_topics)
 
-    def generate_model(self, corpus):
-        return gensim.models.LdaModel(corpus, num_topics=self.num_features)
+    def generate_model(self, dictionary):
+        return gensim.models.LdaModel(dictionary.mm_corpus, num_topics=self.num_features)
 
     def load_model(self, fname):
         return gensim.models.LdaModel.load(fname, mmap='r')
 
 
 class Word2VecRetrieval(GensimInterface):
-    def __init__(self, dictionary, n_dimensions=100):
-        GensimInterface.__init__(self, dictionary=dictionary, name='word2vec', num_features=n_dimensions)
+    def __init__(self, dictionary, n_topics=100):
+        GensimInterface.__init__(self, dictionary=dictionary, name='word2vec', num_features=n_topics)
 
-    def generate_model(self, corpus):
-        return gensim.models.Word2Vec(corpus, size=self.num_features)
+    def generate_model(self, dictionary):
+        return gensim.models.Word2Vec(dictionary, size=self.num_features)
 
     def load_model(self, fname):
         return gensim.models.Word2Vec.load(fname, mmap='r')
 
+
+class Doc2VecRetrieval(GensimInterface):
+    def __init__(self, dictionary, n_topics=100):
+        GensimInterface.__init__(self, dictionary=dictionary, name='word2vec', num_features=n_topics)
+
+    def generate_model(self, dictionary):
+        return gensim.models.Doc2Vec(dictionary, size=self.num_features)
+
+    def load_model(self, fname):
+        return gensim.models.Doc2Vec.load(fname, mmap='r')
+
+
 if __name__ == '__main__':
+
+    # build the models (if they aren't already built)
     dic = CorpusDictionary(prefix='v20000') # get the shorter dictionary
     print(dic.vocab)
+    print(dic.mm_corpus)
 
     model = TfidfRetrieval(dic)
     print(model)
@@ -115,6 +131,9 @@ if __name__ == '__main__':
     print(model)
 
     model = Word2VecRetrieval(dic)
+    print(model)
+
+    model = Doc2VecRetrieval(dic)
     print(model)
 
 

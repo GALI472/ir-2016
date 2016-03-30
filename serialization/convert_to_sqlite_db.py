@@ -11,6 +11,9 @@ import xml.etree.ElementTree as ET
 
 from serialization.sqldb import DBSession, Category, Question, Answer, init_db
 
+import logging
+logger = logging.getLogger(__name__)
+
 DO_YOU_REALLY_WANT_TO_RUN = False
 assert DO_YOU_REALLY_WANT_TO_RUN, 'Do you REALLY want to run? The database takes a long time to create!'
 
@@ -18,7 +21,7 @@ dataset = 'yahoo_full'
 
 # make sure the file exists so it can be processed
 if not os.path.exists(config.DATASETS[dataset]):
-    print('File not found at: "%s"' % config.DATASETS[dataset])
+    logger.info('File not found at: "%s"' % config.DATASETS[dataset])
     sys.exit(-1)
 
 session = DBSession()
@@ -42,7 +45,7 @@ for event, elem in ET.iterparse(config.DATASETS[dataset], events=('start', 'end'
 
             count += 1
             if count % 10000 == 0:
-                print('Processed %d questions' % count)
+                logger.info('Processed %d questions' % count)
                 session.commit()
 
             # clear variables being stored
@@ -83,5 +86,5 @@ for event, elem in ET.iterparse(config.DATASETS[dataset], events=('start', 'end'
             question.best_answer_yahoo_id = elem.text.strip()
 
 # commit to database and close the session
-print('Done processing data; committing extra changes to database and closing session')
+logger.info('Done processing data; committing extra changes to database and closing session')
 session.commit(); session.close()
