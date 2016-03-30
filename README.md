@@ -22,10 +22,10 @@ CS 572 - Information Retrieval final project, Emory University 2016
 
 ###### Unsupervised
 
-- [x] Latent Dirichlet Allocation - [Gensim](https://radimrehurek.com/gensim/models/ldamodel.html)
-- [x] Latent Semantic Indexing - [Gensim](https://radimrehurek.com/gensim/models/lsimodel.html)
 - [x] TF-IDF or BM-25 - [Gensim](https://radimrehurek.com/gensim/models/tfidfmodel.html)
-- [x] Word2Vec - [Gensim](https://radimrehurek.com/gensim/models/word2vec.html)
+- [x] Latent Semantic Indexing - [Gensim](https://radimrehurek.com/gensim/models/lsimodel.html)
+- [ ] Latent Dirichlet Allocation - [Gensim](https://radimrehurek.com/gensim/models/ldamodel.html)
+- [ ] Word2Vec - [Gensim](https://radimrehurek.com/gensim/models/word2vec.html)
 
 ###### Learn to Rank
 
