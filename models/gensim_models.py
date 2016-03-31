@@ -15,11 +15,12 @@ logger = logging.getLogger(__name__)
 
 
 class GensimInterface(RetrievalInterface):
-    def __init__(self, dictionary, name, num_features):
+    def __init__(self, dictionary, name, num_features, num_best=None):
         assert name in config.MODELS, '"%s" not found in models, please specify in config.py' % name
         self.name = name
         self.index_name = config.MODELS[name] + '.index'
         self.num_features = num_features
+        self.num_best = num_best
 
         if os.path.exists(self.index_name):
             logger.info('Loading matrix similarities for <%s>' % name)
@@ -41,13 +42,20 @@ class GensimInterface(RetrievalInterface):
             model = self.load_model(config.MODELS[name])
 
         index = gensim.similarities.Similarity(self.index_name,
-                                               model[dictionary.mm_corpus],
-                                               self.num_features)
+                                               model[dictionary.mm_answer_corpus],
+                                               self.num_features,
+                                               num_best=self.num_best)
 
         return index
 
     def top_n_documents(self, document, n):
-        sims = sorted(enumerate(self.index[document]), key=lambda item: -item[1])
+        assert self.num_best is None or n >= self.num_best, 'num_best must be at least number of requested docs'
+
+        if self.num_best is None:
+            sims = sorted(enumerate(self.index[document]), key=lambda item: -item[1])
+        else:
+            sims = sorted(self.index[document], key=lambda item: -item[1])
+
         return sims[:n]
 
     @abc.abstractmethod
@@ -60,41 +68,41 @@ class GensimInterface(RetrievalInterface):
 
 
 class TfidfRetrieval(GensimInterface):
-    def __init__(self, dictionary):
-        GensimInterface.__init__(self, dictionary=dictionary, name='tfidf', num_features=dictionary.vocab.num_docs)
+    def __init__(self, dictionary, num_best=None):
+        GensimInterface.__init__(self, dictionary=dictionary, name='tfidf', num_features=dictionary.vocab.num_docs, num_best=num_best)
 
     def generate_model(self, dictionary):
-        return gensim.models.TfidfModel(dictionary.mm_corpus)
+        return gensim.models.TfidfModel(dictionary.mm_answer_corpus)
 
     def load_model(self, fname):
         return gensim.models.TfidfModel.load(fname, mmap='r')
 
 
 class LdaRetrieval(GensimInterface):
-    def __init__(self, dictionary, n_topics=1000):
-        GensimInterface.__init__(self, dictionary=dictionary, name='lda', num_features=n_topics)
+    def __init__(self, dictionary, n_topics=1000, num_best=None):
+        GensimInterface.__init__(self, dictionary=dictionary, name='lda', num_features=n_topics, num_best=num_best)
 
     def generate_model(self, dictionary):
-        return gensim.models.LdaModel(dictionary.mm_corpus, num_topics=self.num_features)
+        return gensim.models.LdaModel(dictionary.mm_answer_corpus, num_topics=self.num_features)
 
     def load_model(self, fname):
         return gensim.models.LdaModel.load(fname, mmap='r')
 
 
 class LsiRetrieval(GensimInterface):
-    def __init__(self, dictionary, n_topics=100):
-        GensimInterface.__init__(self, dictionary=dictionary, name='lsi', num_features=n_topics)
+    def __init__(self, dictionary, n_topics=100, num_best=None):
+        GensimInterface.__init__(self, dictionary=dictionary, name='lsi', num_features=n_topics, num_best=num_best)
 
     def generate_model(self, dictionary):
-        return gensim.models.LdaModel(dictionary.mm_corpus, num_topics=self.num_features)
+        return gensim.models.LdaModel(dictionary.mm_answer_corpus, num_topics=self.num_features)
 
     def load_model(self, fname):
         return gensim.models.LdaModel.load(fname, mmap='r')
 
 
 class Word2VecRetrieval(GensimInterface):
-    def __init__(self, dictionary, n_topics=100):
-        GensimInterface.__init__(self, dictionary=dictionary, name='word2vec', num_features=n_topics)
+    def __init__(self, dictionary, n_topics=100, num_best=None):
+        GensimInterface.__init__(self, dictionary=dictionary, name='word2vec', num_features=n_topics, num_best=num_best)
 
     def generate_model(self, dictionary):
         return gensim.models.Word2Vec(dictionary, size=self.num_features)
@@ -104,8 +112,8 @@ class Word2VecRetrieval(GensimInterface):
 
 
 class Doc2VecRetrieval(GensimInterface):
-    def __init__(self, dictionary, n_topics=100):
-        GensimInterface.__init__(self, dictionary=dictionary, name='word2vec', num_features=n_topics)
+    def __init__(self, dictionary, n_topics=100, num_best=None):
+        GensimInterface.__init__(self, dictionary=dictionary, name='doc2vec', num_features=n_topics, num_best=num_best)
 
     def generate_model(self, dictionary):
         return gensim.models.Doc2Vec(dictionary, size=self.num_features)
@@ -113,13 +121,12 @@ class Doc2VecRetrieval(GensimInterface):
     def load_model(self, fname):
         return gensim.models.Doc2Vec.load(fname, mmap='r')
 
-
 if __name__ == '__main__':
 
     # build the models (if they aren't already built)
     dic = CorpusDictionary(prefix='v20000') # get the shorter dictionary
     print(dic.vocab)
-    print(dic.mm_corpus)
+    print(dic.mm_answer_corpus)
 
     model = TfidfRetrieval(dic)
     print(model)
@@ -133,7 +140,7 @@ if __name__ == '__main__':
     model = Word2VecRetrieval(dic)
     print(model)
 
-    model = Doc2VecRetrieval(dic)
-    print(model)
+    # model = Doc2VecRetrieval(dic)
+    # print(model)
 
 

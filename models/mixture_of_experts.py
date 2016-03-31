@@ -6,8 +6,8 @@ from serialization.dictionary import CorpusDictionary
 
 class MixtureOfExperts(RetrievalInterface):
 
-    def __init__(self, experts, dic_prefix=''):
-        self.dictionary = CorpusDictionary(prefix=dic_prefix)
+    def __init__(self, dictionary, experts):
+        self.dictionary = dictionary
         self.experts = [expert(self.dictionary) for expert in experts]
 
         self.model = None #### TODO
@@ -22,8 +22,16 @@ if __name__ == '__main__':
         LsiRetrieval,
         LdaRetrieval,
         Word2VecRetrieval,
-        Doc2VecRetrieval,
     ]
 
-    moe = MixtureOfExperts(experts, dic_prefix='v20000')
+    dic = CorpusDictionary(prefix='v20000')
+    model = LdaRetrieval(dic, num_best=10)
+
+    docs = dic.get_docs(num=100)
+    q, a = docs[0], docs[1]
+
+    print(model.index[q])
+
+
+    # moe = MixtureOfExperts(dic, experts)
 

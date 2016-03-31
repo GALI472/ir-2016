@@ -7,6 +7,7 @@ import os
 import gensim
 import itertools
 
+import theano
 from gensim.corpora import Dictionary
 from keras.preprocessing.sequence import pad_sequences
 import numpy as np
@@ -18,6 +19,12 @@ from serialization.sqldb import DBSession, Category, Question, Answer
 
 import logging
 logger = logging.getLogger(__name__)
+
+
+class WordsTagsPair:
+    def __init__(self, words, tags):
+        self.words = words
+        self.tags = tags
 
 
 class CorpusDictionary:
@@ -96,7 +103,10 @@ class CorpusDictionary:
                 if a.content is None:
                     continue
 
-                doc = CorpusDictionary.tokenize(a.content)
+                doc = list(CorpusDictionary.tokenize(a.content))
+
+                if len(doc) == None:
+                    continue
 
                 i += 1
                 if i % self.print_per == 0:
@@ -112,10 +122,10 @@ class CorpusDictionary:
 
         # load the corpus
         logger.info('Loading corpus from "%s"' % files['mm_question_corpus'])
-        self.mm_corpus = gensim.corpora.MmCorpus(files['mm_question_corpus'])
+        self.mm_question_corpus = gensim.corpora.MmCorpus(files['mm_question_corpus'])
 
         logger.info('Loading corpus from "%s"' % files['mm_answer_corpus'])
-        self.mm_corpus = gensim.corpora.MmCorpus(files['mm_answer_corpus'])
+        self.mm_answer_corpus = gensim.corpora.MmCorpus(files['mm_answer_corpus'])
 
         # commit and close the session
         session.close()
@@ -189,7 +199,30 @@ class CorpusDictionary:
 
         for answer in session.query(Answer).yield_per(self.yield_per):
             for line in answer.content.splitlines():
-                yield list(line.split())
+                yield WordsTagsPair(line.split(), '')
+
+        session.close()
+
+    def gen_docs(self, num=-1):
+        session = DBSession()
+
+        if num < 0:
+            num = self.n_answers
+
+        for i, answer in enumerate(itertools.islice(session.query(Answer).yield_per(self.yield_per), num)):
+
+            if (i+1) % self.print_per == 0:
+                logger.info('Processed %d / %d answers' % (i, num))
+
+            question = answer.question
+            question_title_tokens = CorpusDictionary.tokenize(question.title)
+            question_content_tokens = [] if question.content is None else CorpusDictionary.tokenize(question.content)
+            question_tokens = itertools.chain(question_title_tokens, question_content_tokens)
+
+            answer_tokens = CorpusDictionary.tokenize(answer.content)
+
+            print(question.title)
+            yield self.vocab.doc2bow(question_tokens), self.vocab.doc2bow(answer_tokens)
 
         session.close()
 
@@ -210,35 +243,31 @@ class CorpusDictionary:
         if num < 0:
             num = self.n_answers
 
-        i = 0
-        for answer in itertools.islice(session.query(Answer).yield_per(self.yield_per), num):
-            i += 1
-            if i % self.print_per == 0:
-                logger.info('Processed %d / %d answers' % (i, self.n_answers))
+        for i, answer in enumerate(itertools.islice(session.query(Answer).yield_per(self.yield_per), num)):
+
+            if (i+1) % self.print_per == 0:
+                logger.info('Processed %d / %d answers' % (i, num))
 
             question = answer.question
             question_title_tokens = CorpusDictionary.tokenize(question.title)
             question_content_tokens = [] if question.content is None else CorpusDictionary.tokenize(question.content)
 
             # encode using the dictionary
-            question_enc = [self.token2id(x) for x in itertools.chain(question_title_tokens, question_content_tokens)]
-
-            # category indices
-            category_enc = self.cat_to_idx(question.category)
+            question_enc = self.vocab.doc2bow(itertools.chain(question_title_tokens, question_content_tokens))
 
             # answer indices
             answer_tokens = CorpusDictionary.tokenize(answer.content)
-            answer_enc = [self.token2id(x) for x in answer_tokens]
+            answer_enc = self.vocab.doc2bow(answer_tokens)
 
             # append encoded versions to the list to keep track of them
             answers.append(answer_enc)
             questions.append(question_enc)
-            categories.append(category_enc)
+
+        session.close()
 
         question_length = config.STRING_LENGTHS['question_title'] + config.STRING_LENGTHS['question_content']
-        return (pad_sequences(answers, config.STRING_LENGTHS['answer_content']),
-                pad_sequences(questions, question_length),
-                np.array(categories))
+        return pad_sequences(answers, config.STRING_LENGTHS['answer_content'], dtype=theano.config.floatX),\
+               pad_sequences(questions, question_length, dtype=theano.config.floatX)
 
 if __name__ == '__main__':
     dic = CorpusDictionary()
