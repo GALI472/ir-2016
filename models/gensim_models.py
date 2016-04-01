@@ -50,12 +50,7 @@ class GensimInterface(RetrievalInterface):
 
     def top_n_documents(self, document, n):
         assert self.num_best is None or n >= self.num_best, 'num_best must be at least number of requested docs'
-
-        if self.num_best is None:
-            sims = sorted(enumerate(self.index[document]), key=lambda item: -item[1])
-        else:
-            sims = sorted(self.index[document], key=lambda item: -item[1])
-
+        sims = sorted(enumerate(self.index[document]), key=lambda item: -item[1])
         return sims[:n]
 
     @abc.abstractmethod
@@ -110,17 +105,6 @@ class Word2VecRetrieval(GensimInterface):
     def load_model(self, fname):
         return gensim.models.Word2Vec.load(fname, mmap='r')
 
-
-class Doc2VecRetrieval(GensimInterface):
-    def __init__(self, dictionary, n_topics=100, num_best=None):
-        GensimInterface.__init__(self, dictionary=dictionary, name='doc2vec', num_features=n_topics, num_best=num_best)
-
-    def generate_model(self, dictionary):
-        return gensim.models.Doc2Vec(dictionary, size=self.num_features)
-
-    def load_model(self, fname):
-        return gensim.models.Doc2Vec.load(fname, mmap='r')
-
 if __name__ == '__main__':
 
     # build the models (if they aren't already built)
@@ -139,8 +123,3 @@ if __name__ == '__main__':
 
     model = Word2VecRetrieval(dic)
     print(model)
-
-    # model = Doc2VecRetrieval(dic)
-    # print(model)
-
-
