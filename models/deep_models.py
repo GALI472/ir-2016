@@ -1,61 +1,43 @@
 from __future__ import print_function
 
-from keras.layers import Embedding, Convolution1D, MaxPooling1D, LSTM, Dropout, Dense, Merge
-from keras.models import Sequential
+import os
+
+import pickle
+
+import theano
+from keras.preprocessing.sequence import pad_sequences
+from nltk.corpus import reuters
+import numpy as np
+from sklearn.preprocessing import OneHotEncoder
 
 import config
 
-WEIGHTS_FILE = config.RESOURCES['weights']['cnn_lstm']
-LOAD_WEIGHTS = False
-VOCAB_SIZE = 20000
-BATCH_SIZE = 32
-EPOCHS = 200
+reuters_enc_path = os.path.join(config.BASE_DATA_PATH, 'reuters_enc.npz')
+max_len = 1000
 
-# TODO: Trim dictionary to top `VOCAB_SIZE` elements
+if os.path.exists(reuters_enc_path):
+    npfile = np.load(reuters_enc_path)
+    cats = npfile['arr_0']
+    docs = npfile['arr_1']
+else:
+    cat_enc = dict((x, i) for i, x in enumerate(set(reuters.categories())))
 
-# build the network
-HIDDEN_NEURONS = 50
-EMBEDDING_SIZE = 50
-LSTM_DROPOUT_U = 0.15
-LSTM_DROPOUT_W = 0.25
+    def encode(x):
+        r = [int(i) for i in x[:max_len].encode('ascii','ignore')]
+        return r
 
-# TODO: Might work better as a graphical model?
-# It might be ideal to train the same language model on both the questions and answers
+    encs = [([cat_enc[i] for i in reuters.categories(fid)], encode(reuters.raw(fid))) for fid in reuters.fileids()]
 
-# predict question given answer
-print('Building network...')
+    cats_enc = [i[0] for i in encs]
+    cats = np.zeros((len(cats_enc), max([max(i) for i in cats_enc])), dtype=theano.config.floatX)
 
-# answer part
-a_model = Sequential()
-a_model.add(Embedding(VOCAB_SIZE, EMBEDDING_SIZE, input_length=config.STRING_LENGTHS['answer_content']))
-a_model.add(Convolution1D(nb_filter=64, filter_length=3, border_mode='valid', activation='relu', subsample_length=1))
-a_model.add(MaxPooling1D(pool_length=2))
-a_model.add(LSTM(HIDDEN_NEURONS, return_sequences=True, dropout_U=LSTM_DROPOUT_U, dropout_W=LSTM_DROPOUT_W))
-a_model.add(LSTM(HIDDEN_NEURONS, return_sequences=True, dropout_U=LSTM_DROPOUT_U, dropout_W=LSTM_DROPOUT_W, go_backwards=True))
-a_model.add(LSTM(HIDDEN_NEURONS, return_sequences=True, dropout_U=LSTM_DROPOUT_U, dropout_W=LSTM_DROPOUT_W))
-a_model.add(Dropout(0.25))
-a_model.add(Convolution1D(nb_filter=64, filter_length=3, border_mode='valid', activation='relu',
-                           subsample_length=1))
-a_model.add(MaxPooling1D(pool_length=2))
-a_model.add(LSTM(50, return_sequences=False))
+    for i, cat in enumerate(cats_enc):
+        for j in cat:
+            cats[i,j-1] = 1
 
-# question part
-q_model = Sequential()
-q_model.add(Embedding(VOCAB_SIZE, EMBEDDING_SIZE, input_length=config.STRING_LENGTHS['answer_content']))
-q_model.add(Convolution1D(nb_filter=64, filter_length=3, border_mode='valid', activation='relu', subsample_length=1))
-q_model.add(MaxPooling1D(pool_length=2))
-q_model.add(LSTM(HIDDEN_NEURONS, return_sequences=True, dropout_U=LSTM_DROPOUT_U, dropout_W=LSTM_DROPOUT_W))
-q_model.add(LSTM(HIDDEN_NEURONS, return_sequences=True, dropout_U=LSTM_DROPOUT_U, dropout_W=LSTM_DROPOUT_W, go_backwards=True))
-q_model.add(LSTM(HIDDEN_NEURONS, return_sequences=True, dropout_U=LSTM_DROPOUT_U, dropout_W=LSTM_DROPOUT_W))
-q_model.add(Dropout(0.25))
-q_model.add(Convolution1D(nb_filter=64, filter_length=3, border_mode='valid', activation='relu',
-                           subsample_length=1))
-q_model.add(MaxPooling1D(pool_length=2))
-q_model.add(LSTM(50, return_sequences=False))
+    docs = pad_sequences([i[1] for i in encs], maxlen=max_len, dtype=theano.config.floatX)
 
-aq_model = Sequential()
-aq_model.add(Merge([a_model, q_model], mode='cos'))
+    np.savez(reuters_enc_path, cats, docs)
 
-aq_model.compile(optimizer='adam', loss='categorical_crossentropy')
-
-# TODO: Train on real data
+print(cats.shape)
+print(docs.shape)
