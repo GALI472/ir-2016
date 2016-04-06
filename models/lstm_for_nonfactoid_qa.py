@@ -21,27 +21,32 @@ import itertools
 import os
 
 import config
-from serialization.sqldb import DBSession, Answer
+from serialization.sqldb import DBSession, Answer, Question
 
 import logging
 logger = logging.getLogger(__name__)
 
 # lengths of strings
-ac_len = 100 # config.STRING_LENGTHS['answer_content']
-qt_len = 100 # config.STRING_LENGTHS['question_title']
-qc_len = 10 # config.STRING_LENGTHS['question_content']
+ac_len = 100
+qt_len = 100
+qc_len = 10
+# ac_len = config.STRING_LENGTHS['answer_content']
+# qt_len = config.STRING_LENGTHS['question_title']
+# qc_len = config.STRING_LENGTHS['question_content']
 
 # generate document encodings
 vocab = Dictionary.load(os.path.join(config.BASE_DATA_PATH, 'dicts', 'v20000_vocab.dict'))
 
 max_char = len(vocab.token2id) + 1
-default_id = max_char - 1
+default_id = max_char - 1 # unknown token
+# max_char = 256
 
 
 def encode_doc(doc, max_len):
     if doc is None:
         return np.asarray([])
 
+    # enc = np.asarray([max(min(ord(c), max_char-1), 0) for c in doc[:max_len]])
     enc = np.asarray([vocab.token2id.get(c, default_id) for c in itertools.islice(gensim.utils.tokenize(doc, to_lower=True), max_len)])
     return enc
 
@@ -73,22 +78,23 @@ model.add_node(AveragePooling1D(pool_length=pool_length), name='q_ap', inputs=['
 model.add_node(Flatten(), name='q_flat', inputs=['q_mp', 'q_ap'], merge_mode='concat')
 model.add_node(Dense(encode_dims, activation='tanh'), name='q_out', input='q_flat')
 
-model.add_node(Dense(embedding_dims, activation='tanh'), name='q_dense', input='q_flat')
-model.add_node(RepeatVector(ac_len), name='q_rep', input='q_dense')
+# attention model part
+# model.add_node(Dense(embedding_dims, activation='tanh'), name='q_dense', input='q_flat')
+# model.add_node(RepeatVector(ac_len), name='q_rep', input='q_dense')
 
 model.add_input(name='answer', input_shape=(ac_len,), dtype=int)
 model.add_node(Embedding(max_char, embedding_dims, input_length=ac_len), name='a_emb', input='answer')
-model.add_node(LSTM(lstm_dims, return_sequences=True, dropout_U=0.1, dropout_W=0.1), name='a_flstm1', inputs=['a_emb', 'q_rep'], merge_mode='sum')
-model.add_node(LSTM(lstm_dims, go_backwards=True, return_sequences=True, dropout_U=0.1, dropout_W=0.1), name='a_blstm1', inputs=['a_emb', 'q_rep'], merge_mode='sum')
+model.add_node(LSTM(lstm_dims, return_sequences=True, dropout_U=0.1, dropout_W=0.1), name='a_flstm1', input='a_emb')
+model.add_node(LSTM(lstm_dims, go_backwards=True, return_sequences=True, dropout_U=0.1, dropout_W=0.1), name='a_blstm1', input='a_emb')
 model.add_node(MaxPooling1D(pool_length=2), name='a_mp', inputs=['a_flstm1', 'a_blstm1'], merge_mode='ave')
 model.add_node(AveragePooling1D(pool_length=2), name='a_ap', inputs=['a_flstm1', 'a_blstm1'], merge_mode='ave')
 model.add_node(Flatten(), name='a_flat', inputs=['a_mp', 'a_ap'], merge_mode='concat')
 model.add_node(Dense(encode_dims, activation='tanh'), name='a_out', input='a_flat')
 
-model.add_output(name='output', inputs=['q_out', 'a_out'], merge_mode='dot')
+model.add_output(name='output', inputs=['q_out', 'a_out'], merge_mode='cos', dot_axes=1)
 
 logger.info('Compiling...')
-model.compile('adam', {'output': 'binary_crossentropy'})
+model.compile(optimizer='rmsprop', loss={'output': 'mean_squared_error'})
 
 logger.info('Done!')
 
@@ -136,17 +142,43 @@ def generate_data(generate_every=50):
 
     session.close()
 
-samples_per_epoch = 1000
-nb_epoch = 100
 
-train = generate_data()
-test = generate_data()
+def test():
+    logger.info('Starting session...')
+    session = DBSession()
+
+    for question in session.query(Question).order_by(func.random()).limit(5 ):
+
+        print('\n\nQUESTION\n--------')
+        print('Question title: {}'.format(question.title))
+        print('Question content: {}'.format(question.content))
+
+        for answer in session.query(Answer).filter(Answer.question_id == question.id):
+            print('ANSWER\n------\n{}'.format(answer.content))
+            print(model.predict({'question_title': pad_sequences([encode_doc(question.title, qt_len)], maxlen=qt_len),
+                                 'question_content': pad_sequences([encode_doc(question.content, qc_len)], maxlen=qc_len),
+                                 'answer': pad_sequences([encode_doc(answer.content, ac_len)], maxlen=ac_len)}))
+
+        for answer in session.query(Answer).filter(Answer.question_id != question.id).order_by(func.random()).limit(5):
+            print('BAD ANSWER\n----------\n{}'.format(answer.content))
+            print(model.predict({'question_title': pad_sequences([encode_doc(question.title, qt_len)], maxlen=qt_len),
+                                 'question_content': pad_sequences([encode_doc(question.content, qc_len)], maxlen=qc_len),
+                                 'answer': pad_sequences([encode_doc(answer.content, ac_len)], maxlen=ac_len)}))
+
+    session.close()
+
+samples_per_epoch = 1000
+nb_epoch = 1000
 
 # 10 * 100 * 1000 = 1,000,000
 # looks at every data set at least once
 
-for i in range(10):
-    model.fit_generator(train, samples_per_epoch, nb_epoch, validation_data=test, nb_val_samples=10)
+for i in range(3):
+    model.fit_generator(generate_data(), samples_per_epoch, nb_epoch, validation_data=generate_data(), nb_val_samples=10)
     model.save_weights(config.MODELS['lstm_cnn'], overwrite=True)
+    test()
 
 logger.info('Done training')
+
+# logger.info('Loading weights...')
+# model.load_weights(config.MODELS['lstm_cnn'])
