@@ -1,9 +1,10 @@
 from __future__ import print_function
 
 import os
+from collections import defaultdict
 
 from keras.models import Sequential
-from keras.layers import LSTM, Dropout, Activation, Convolution1D, MaxPooling1D, Dense
+from keras.layers import *
 from nltk.corpus import reuters
 import numpy as np
 import pickle
@@ -18,9 +19,6 @@ char_idx_path = os.path.join(config.BASE_DATA_PATH, 'char_idx.pkl')
 max_len = 1000
 max_char = 256
 
-default_char = 'X'
-default_idx = 0
-
 
 def encode_doc(doc):
     d = np.zeros((1, max_len-1, n_chars), dtype=np.bool)
@@ -28,6 +26,7 @@ def encode_doc(doc):
         d[0, p, char_to_idx[j]] = 1
     return d
 
+# load or create the character encoding dictionaries
 if os.path.exists(char_idx_path):
     with open(char_idx_path, 'rb') as f:
         logger.info('Loading character encodings from "%s"' % char_idx_path)
@@ -36,7 +35,7 @@ if os.path.exists(char_idx_path):
         cat_enc = pickle.load(f)
 else:
     n_docs = len(reuters.fileids())
-    cat_enc = dict((x, i + 1) for i, x in enumerate(set(reuters.categories())))
+    cat_enc = dict((x, i+1) for i, x in enumerate(set(reuters.categories())))
 
     chars = set()
     for fid in reuters.fileids():
@@ -44,8 +43,6 @@ else:
 
     idx_to_char = dict((i, c) for i, c in enumerate(chars))
     char_to_idx = dict((c, i) for i, c in enumerate(chars))
-
-    cat_enc = dict((x, i + 1) for i, x in enumerate(set(reuters.categories())))
 
     with open(char_idx_path, 'wb') as f:
         logger.info('Saving character encodings to "%s"' % char_idx_path)
@@ -75,10 +72,14 @@ else:
             cats[i,j-1] = 1
 
     # encode the documents
-    docs = np.zeros((n_docs, max_len, n_chars), dtype=np.bool)
+    docs = np.zeros((n_docs, max_len+2, n_chars), dtype=np.bool)
     for i, fid in enumerate(reuters.fileids()):
-        for p, j in enumerate(reuters.raw(fid).lower()[:max_len]):
-            docs[i, p, char_to_idx[j]] = 1
+        r = reuters.raw(fid).lower()[:max_len]
+        l = len(r)
+        docs[i, 0, start_char] = 1
+        for p, j in enumerate(r):
+            docs[i, p+1, char_to_idx[j]] = 1
+        docs[i, l+1, end_char] = 1
 
     # save the output
     logging.info('Saving reuters encodings to "%s"' % reuters_enc_path)
@@ -91,8 +92,8 @@ y = docs[:, 1:, :]
 
 logging.info('Building model...')
 model = Sequential()
-model.add(LSTM(256, return_sequences=True, input_shape=(max_len-1, n_chars)))
-model.add(Activation('relu'))
+model.add(LSTM(256, return_sequences=True, input_shape=(max_len-1, n_chars), activation='tanh'))
+model.add(BatchNormalization())
 model.add(Dropout(0.2))
 
 model.add(LSTM(n_chars, return_sequences=True))
@@ -113,13 +114,12 @@ def sample(a, temperature=1.0):
 
 def evaluate():
     p = model.predict(encode_doc('what is my name? '))
-    print(p.shape)
-    print(sample(p))
-    print(p)
+    for t in np.arange(0.1, 2, 0.1):
+        print(str(t))
+        print(''.join([idx_to_char[sample(i, t)] for i in p[0, :, :]]).replace('\n', ''))
 
 logging.info('Fitting model...')
 for i in range(10):
     evaluate()
     model.fit(X, y, batch_size=128, nb_epoch=10, verbose=True)
-
-model.save_weights(model_save_location, overwrite=True)
+    model.save_weights(model_save_location, overwrite=True)
